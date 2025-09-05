@@ -1,0 +1,332 @@
+Perfect 👍
+You want a **well-structured and corrected README.md** for your **Lecture 2 Jenkins + Maven + Docker pipeline setup on Ubuntu EC2**, without mistakes (since in your steps, Docker was reinstalled due to misconfiguration).
+
+Here’s the **clean GitHub-ready README.md** 👇
+
+---
+
+````markdown
+# 🚀 Jenkins + Maven + Docker CI/CD Pipeline on Ubuntu EC2
+
+This guide explains how to set up **Jenkins** on an **Ubuntu EC2 instance**, integrate it with **Maven** and **Docker**, and run a CI/CD pipeline that:
+1. Clones code from GitHub  
+2. Builds with Maven  
+3. Creates a Docker image  
+4. Deploys the container automatically  
+
+---
+
+## 📌 Prerequisites
+- AWS Account  
+- Key pair to connect EC2 instance  
+- Basic knowledge of Linux & Git  
+
+---
+
+## 🖥 Step 1: Launch EC2 Instance
+- **Name:** `vm_ubuntu_jenkins_server`  
+- **AMI:** Ubuntu (latest LTS)  
+- **Instance Type:** `t2.medium`  
+- **Security Group:** Allow  
+  - Port **22 (SSH)**  
+  - Port **8080 (Jenkins)**  
+  - Port **9090 (App Deployment)**  
+
+Connect using Git Bash / Terminal:
+
+```bash
+ssh -i "your-key.pem" ubuntu@<EC2-Public-IP>
+````
+
+---
+
+## ☕ Step 2: Install Java
+
+Jenkins requires Java. Install **OpenJDK 17**:
+
+```bash
+sudo apt update
+sudo apt install -y fontconfig openjdk-17-jre
+java -version
+```
+
+---
+
+## 🔧 Step 3: Install Jenkins
+
+```bash
+# Add Jenkins key
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+
+# Add Jenkins repo
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+# Install Jenkins
+sudo apt-get update
+sudo apt-get install -y jenkins
+```
+
+---
+
+## ▶ Step 4: Start Jenkins
+
+```bash
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+sudo systemctl status jenkins
+```
+
+Access Jenkins at:
+`http://<EC2-Public-IP>:8080/login`
+
+---
+
+## 🔑 Step 5: Unlock Jenkins
+
+Get initial admin password:
+
+```bash
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+* Paste in **Administrator Password** field
+* Install suggested plugins
+* Create first admin user
+
+  * Username: `Ashish`
+  * Password: `ashish12345`
+
+---
+
+## 🛠 Step 6: Create First Pipeline Job
+
+1. Go to **Dashboard → New Item**
+2. Name: `test-pipeline`
+3. Select **Pipeline** → OK
+4. Add sample script:
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+```
+
+Save → **Build Now** → check Console Output.
+
+---
+
+## 📂 Step 7: GitHub Integration
+
+Use repo: [docker-test](https://github.com/pankajmutha14/docker-test.git)
+
+Update pipeline:
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Git Clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/pankajmutha14/docker-test.git'
+            }
+        }
+    }
+}
+```
+
+---
+
+## ⚡ Step 8: Setup Maven in Jenkins
+
+1. Go to: `http://<EC2-Public-IP>:8080/manage/` → **Tools**
+2. Add Maven installation:
+
+   * **Name:** `maven-3.9.9`
+   * **Version:** `3.9.9`
+3. Save
+
+Update pipeline:
+
+```groovy
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+        stage('Git Clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/pankajmutha14/docker-test.git'
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean test package'
+            }
+        }
+    }
+}
+```
+
+---
+
+## 🐳 Step 9: Install Docker
+
+Install Docker on EC2 & configure for Jenkins:
+
+```bash
+sudo apt update
+curl -fsSL get.docker.com | /bin/bash
+sudo usermod -aG docker ubuntu
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+docker --version
+```
+
+---
+
+## 📦 Step 10: Build Docker Image in Pipeline
+
+Update pipeline:
+
+```groovy
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+        stage('Git Clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/pankajmutha14/docker-test.git'
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean test package'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t psait/test1 .'
+            }
+        }
+    }
+}
+```
+
+---
+
+## 🚀 Step 11: Deploy Docker Container
+
+Update pipeline to run container:
+
+```groovy
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+        stage('Git Clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/pankajmutha14/docker-test.git'
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean test package'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t psait/test1 .'
+            }
+        }
+
+        stage('Deploy Docker Container') {
+            steps {
+                sh '''
+                    docker stop psait || true
+                    docker rm psait || true
+                    docker run -d -p 9090:8080 --name psait psait/test1
+                '''
+            }
+        }
+    }
+}
+```
+
+Now open app:
+`http://<EC2-Public-IP>:9090/message`
+
+---
+
+## ⏱ Step 12: Automate Build
+
+To run job every 1 minute:
+Go to **Configure → Build Triggers → Build Periodically**
+
+```cron
+* * * * *
+```
+
+⚠ **Not recommended** (wastes resources).
+Better: Use **Poll SCM** so it builds only on GitHub changes.
+
+---
+
+## ✅ Final Verification
+
+* Jenkins running on port `8080`
+* Maven builds project successfully
+* Docker image created (`docker images`)
+* Container deployed on port `9090`
+* URL working: `http://<EC2-Public-IP>:9090/message`
+
+---
+
+## 📌 Notes
+
+* If Docker misbehaves, uninstall fully before reinstalling:
+
+```bash
+sudo apt-get purge -y docker docker-engine docker.io docker-ce docker-ce-cli containerd runc
+sudo apt-get autoremove -y
+sudo rm -rf /var/lib/docker /var/lib/containerd /etc/docker ~/.docker
+```
+
+* Always add both **ubuntu** and **jenkins** users to Docker group.
+* Use **Poll SCM** instead of Build Periodically for real projects.
+
+---
+
+```
+
+---
+
+👉 This README is now **clean, corrected, and production-ready** for GitHub.  
+
+Do you also want me to **add screenshots placeholders** (like `![Jenkins UI](images/jenkins-login.png)`) so your README looks more professional on GitHub?
+```
